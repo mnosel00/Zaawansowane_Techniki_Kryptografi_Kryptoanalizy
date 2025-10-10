@@ -77,7 +77,6 @@ int ModInverse(int a, int m)
     return -1;
 }
 
-// Lista wartości a mających odwrotność modulo 26
 int[] possibleA = { 1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25 };
 
 List<(int a, int b, string plain)> results = new();
@@ -109,13 +108,10 @@ foreach (int a in possibleA)
 }
 
 // Wyświetl kilka przykładowych odszyfrowań (możesz tu dodać własną heurystykę, np. szukanie słów "THE", "AND" itp.)
+Console.WriteLine("\nWszystkie możliwe pary kluczy (a, b) i pełne teksty jawne:\n");
 foreach (var (a, b, plain) in results)
 {
-    // Prosta heurystyka: sprawdź, czy tekst zawiera "THE"
-    if (plain.Contains("THE"))
-    {
-        Console.WriteLine($"Możliwy klucz: a={a}, b={b}");
-        Console.WriteLine(plain);
-        Console.WriteLine();
-    }
+    Console.WriteLine($"Klucz: a={a}, b={b}");
+    Console.WriteLine(plain);
+    Console.WriteLine(new string('-', 40));
 }
