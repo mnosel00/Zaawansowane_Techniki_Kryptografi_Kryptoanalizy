@@ -1,115 +1,96 @@
-﻿using System.Net;
-using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
-string szyfr = "Every day i wake up then i start to brake up";
-int LA = 5;
-int LB  = 6;
-int[] czestosci = new int[26];
-var szyfrogramBuilder = new StringBuilder();
-
-foreach (char c in szyfr.ToUpper())
+class Program
 {
-    if (c >= 'A' && c <= 'Z')
+    // Pomocnicza funkcja do obliczania odwrotności modularnej (rozszerzony algorytm Euklidesa)
+    static int ModInverse(int a, int m)
     {
-        int pozycjaWAlfabecie = c - 'A';
-        int szyfrogram = (LA * pozycjaWAlfabecie + LB) % 26;
-        char zaszyfrowanaLitera = (char)('A' + szyfrogram);
-        czestosci[szyfrogram]++;
-        szyfrogramBuilder.Append(zaszyfrowanaLitera);
+        a %= m;
+        for (int x = 1; x < m; x++)
+            if ((a * x) % m == 1)
+                return x;
+        throw new Exception($"Brak odwrotności modularnej dla a={a}, m={m}");
     }
-    else
+
+    // Funkcja deszyfrująca szyfrogram przy użyciu kluczy a, b
+    static string DecryptAffine(string ciphertext, int a, int b)
     {
-        Console.Write(c);
-        szyfrogramBuilder.Append(c);
-    }
-}
+        int m = 26;
+        int aInv = ModInverse(a, m);
+        char[] result = new char[ciphertext.Length];
 
-string szyfrogramString = szyfrogramBuilder.ToString();
-
-var ENGLISH_FREQ = new Dictionary<char, double>
-{
-    {'A', 0.082},
-    {'B', 0.015},
-    {'C', 0.028},
-    {'D', 0.043},
-    {'E', 0.127},
-    {'F', 0.022},
-    {'G', 0.020},
-    {'H', 0.061},
-    {'I', 0.070},
-    {'J', 0.002},
-    {'K', 0.008},
-    {'L', 0.040},
-    {'M', 0.024},
-    {'N', 0.067},
-    {'O', 0.075},
-    {'P', 0.019},
-    {'Q', 0.001},
-    {'R', 0.060},
-    {'S', 0.063},
-    {'T', 0.091},
-    {'U', 0.028},
-    {'V', 0.010},
-    {'W', 0.023},
-    {'X', 0.001},
-    {'Y', 0.020},
-    {'Z', 0.001}
-};
-
-Console.WriteLine("\n\nCzęstość wystąpień liter szyfrogramu:");
-for (int i = 0; i < 26; i++)
-{
-    Console.WriteLine($"{(char)('A' + i)}: {czestosci[i]}");
-}
-
-Console.WriteLine($"\nSzyfrogram jako string:\n{szyfrogramString}");
-
-
-// (a * x) mod m = 1
-//x = a_inv * (y - b) mod 26
-int ModInverse(int a, int m)
-{
-    a = a % m;
-    for (int x = 1; x < m; x++)
-        if ((a * x) % m == 1)
-            return x;
-    return -1;
-}
-
-int[] possibleA = { 1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25 };
-
-List<(int a, int b, string plain)> results = new();
-
-foreach (int a in possibleA)
-{
-    int a_inv = ModInverse(a, 26);
-    if (a_inv == -1) continue;
-    for (int b = 0; b < 26; b++)
-    {
-        char[] plain = new char[szyfrogramString.Length];
-        for (int i = 0; i < szyfrogramString.Length; i++)
+        for (int i = 0; i < ciphertext.Length; i++)
         {
-            char c = szyfrogramString[i];
-            if (c >= 'A' && c <= 'Z')
+            char c = ciphertext[i];
+            if (char.IsLetter(c))
             {
-                int y = c - 'A';
-                int x = (a_inv * (y - b + 26)) % 26;
-                plain[i] = (char)('A' + x);
+                int y = char.ToUpper(c) - 'A';
+                int x = (aInv * (y - b + m)) % m; // D(y) = a^-1 * (y - b)
+                result[i] = (char)('A' + x);
             }
             else
             {
-                plain[i] = c;
+                result[i] = c; // pozostaw znaki niealfabetyczne
             }
         }
-        string plainText = new string(plain);
-        results.Add((a, b, plainText));
+        return new string(result);
     }
-}
 
-Console.WriteLine("\nWszystkie możliwe pary kluczy (a, b) i pełne teksty jawne:\n");
-foreach (var (a, b, plain) in results)
-{
-    Console.WriteLine($"Klucz: a={a}, b={b}");
-    Console.WriteLine(plain);
-    Console.WriteLine(new string('-', 40));
+    // Funkcja do zliczania częstości liter
+    static Dictionary<int, List<char>> GroupLetterOccurrences(string text)
+    {
+        var freq = new Dictionary<char, int>();
+        foreach (char c in text.ToUpper())
+        {
+            if (char.IsLetter(c))
+            {
+                if (!freq.ContainsKey(c))
+                    freq[c] = 0;
+                freq[c]++;
+            }
+        }
+
+        // Grupowanie liter według liczby wystąpień
+        var grouped = freq
+            .GroupBy(kv => kv.Value)
+            .OrderByDescending(g => g.Key)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(kv => kv.Key).OrderBy(ch => ch).ToList()
+            );
+
+        return grouped;
+    }
+
+    static void Main()
+    {
+        string ciphertext = "BIBOX WHX V NHFB DE YQBU V TYHOY YZ MOHFB DE";
+
+        Console.WriteLine("=== ANALIZA CZĘSTOŚCI ===");
+        var grouped = GroupLetterOccurrences(ciphertext);
+        foreach (var group in grouped)
+            Console.WriteLine($"Wystąpień: {group.Key} -> Litery: {string.Join(", ", group.Value)}");
+
+        // Hipoteza: E -> B (y=1), T -> Y (y=24)
+        int m = 26;
+        int x1 = 4, y1 = 1;   // E -> B
+        int x2 = 19, y2 = 24; // T -> Y
+
+        int a, b;
+        int diffX = (x2 - x1) % m;
+        int diffY = (y2 - y1 + m) % m;
+
+        int inv = ModInverse(diffX, m);
+        a = (diffY * inv) % m;
+        b = (y1 - a * x1) % m;
+        if (b < 0) b += m;
+
+        Console.WriteLine($"\nKlucz a = {a}, b = {b}");
+
+        Console.WriteLine("\n=== ODSZYFROWANIE ===");
+        string plaintext = DecryptAffine(ciphertext, a, b);
+        Console.WriteLine(plaintext);
+    }
 }
