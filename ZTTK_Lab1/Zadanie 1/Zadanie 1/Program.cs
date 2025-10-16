@@ -62,7 +62,6 @@ for (int i = 0; i < 26; i++)
     Console.WriteLine($"{(char)('A' + i)}: {czestosci[i]}");
 }
 
-// Wyświetlenie całego szyfrogramu jako string
 Console.WriteLine($"\nSzyfrogram jako string:\n{szyfrogramString}");
 
 
@@ -107,7 +106,6 @@ foreach (int a in possibleA)
     }
 }
 
-// Wyświetl kilka przykładowych odszyfrowań (możesz tu dodać własną heurystykę, np. szukanie słów "THE", "AND" itp.)
 Console.WriteLine("\nWszystkie możliwe pary kluczy (a, b) i pełne teksty jawne:\n");
 foreach (var (a, b, plain) in results)
 {
