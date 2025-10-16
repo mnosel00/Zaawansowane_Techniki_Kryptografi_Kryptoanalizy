@@ -63,6 +63,7 @@ class Program
 
         return grouped;
     }
+   
 
     static void Main()
     {
@@ -73,24 +74,73 @@ class Program
         foreach (var group in grouped)
             Console.WriteLine($"Wystąpień: {group.Key} -> Litery: {string.Join(", ", group.Value)}");
 
-        // Hipoteza: E -> B (y=1), T -> Y (y=24)
+        var pierwszaGrupa = grouped.ElementAtOrDefault(0);
+        var drugaGrupa = grouped.ElementAtOrDefault(1);
+
+        if (pierwszaGrupa.Value != null)
+            Console.WriteLine($"\nPierwsza grupa: Wystąpień: {pierwszaGrupa.Key}, Litery: {string.Join(", ", pierwszaGrupa.Value)}");
+        if (drugaGrupa.Value != null)
+            Console.WriteLine($"Druga grupa: Wystąpień: {drugaGrupa.Key}, Litery: {string.Join(", ", drugaGrupa.Value)}");
+
+
+        if (pierwszaGrupa.Value != null)
+            WypiszPozycjeLiter("Pozycje liter w pierwszej grupie", pierwszaGrupa.Value);
+        if (drugaGrupa.Value != null)
+            WypiszPozycjeLiter("Pozycje liter w drugiej grupie", drugaGrupa.Value);
+
+        void WypiszPozycjeLiter(string opis, List<char> litery)
+        {
+            Console.WriteLine($"\n{opis}:");
+            foreach (var litera in litery)
+            {
+                int pozycja = char.ToUpper(litera) - 'A' + 1;
+                Console.WriteLine($"Litera: {litera}, Pozycja: {pozycja}");
+            }
+        }
+
         int m = 26;
-        int x1 = 4, y1 = 1;   // E -> B
-        int x2 = 19, y2 = 24; // T -> Y
+        int x1 = 4;
+        int x2 = 19;
 
-        int a, b;
-        int diffX = (x2 - x1) % m;
-        int diffY = (y2 - y1 + m) % m;
+        if (pierwszaGrupa.Value != null && drugaGrupa.Value != null)
+        {
+            foreach (var litera1 in pierwszaGrupa.Value)
+            {
+                int y1 = char.ToUpper(litera1) - 'A' ; // pozycja w alfabecie (A=1)
+                foreach (var litera2 in drugaGrupa.Value)
+                {
+                    int y2 = char.ToUpper(litera2) - 'A' ; // pozycja w alfabecie (A=1)
 
-        int inv = ModInverse(diffX, m);
-        a = (diffY * inv) % m;
-        b = (y1 - a * x1) % m;
-        if (b < 0) b += m;
+                    int diffX = (x2 - x1) % m;
+                    int diffY = (y2 - y1 + m) % m;
 
-        Console.WriteLine($"\nKlucz a = {a}, b = {b}");
+                    try
+                    {
+                        int inv = ModInverse(diffX, m);
+                        int a = (diffY * inv) % m;
+                        int b = (y1 - a * x1) % m;
+                        if (b < 0) b += m;
+
+                        Console.WriteLine($"Dla liter {litera1} (y1={y1}) i {litera2} (y2={y2}): a = {a}, b = {b}");
+                        Console.WriteLine($"\nKlucz a = {a}, b = {b}");
+
+                        Console.WriteLine("\n=== ODSZYFROWANIE ===");
+                        string plaintext = DecryptAffine(ciphertext, a, b);
+                        Console.WriteLine(plaintext);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Dla liter {litera1} i {litera2}: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+       /* Console.WriteLine($"\nKlucz a = {a}, b = {b}");
 
         Console.WriteLine("\n=== ODSZYFROWANIE ===");
         string plaintext = DecryptAffine(ciphertext, a, b);
-        Console.WriteLine(plaintext);
+        Console.WriteLine(plaintext);*/
     }
+
 }
