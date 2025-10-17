@@ -64,12 +64,10 @@ class Program
         return grouped;
     }
 
-    // === NOWA FUNKCJA: HEURYSTYKA ===
-    // Ocenia tekst na podstawie popularnych angielskich słów
+   
     static int ScoreByCommonWords(string text)
     {
         int score = 0;
-        // Używamy spacji, aby upewnić się, że dopasowujemy całe słowa
         string paddedText = " " + text.ToUpper() + " ";
 
         // Lista popularnych słów (można rozszerzyć)
@@ -81,7 +79,6 @@ class Program
 
         foreach (string word in commonWords)
         {
-            // Proste 'Contains' jest wystarczające jako heurystyka
             if (paddedText.Contains(word))
             {
                 score++;
@@ -150,7 +147,6 @@ class Program
                                 bestB = b;
                                 bestPlaintext = plaintext;
 
-                                // === ZAPISUJEMY ZWYCIĘSKĄ HIPOTEZĘ ===
                                 best_y1 = y1_char;
                                 best_y2 = y2_char;
                                 best_x1 = (char)('A' + x1);
