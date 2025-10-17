@@ -67,7 +67,7 @@ class Program
 
     static void Main()
     {
-        string ciphertext = "BIBOX WHX V NHFB DE YQBU V TYHOY YZ MOHFB DE";
+        string ciphertext = "BIBOX WHX V NHFB DE YQBU V TYHOY YZ MOBHF DE";
 
         Console.WriteLine("=== ANALIZA CZĘSTOŚCI ===");
         var grouped = GroupLetterOccurrences(ciphertext);
@@ -93,7 +93,7 @@ class Program
             Console.WriteLine($"\n{opis}:");
             foreach (var litera in litery)
             {
-                int pozycja = char.ToUpper(litera) - 'A' + 1;
+                int pozycja = char.ToUpper(litera) - 'A';
                 Console.WriteLine($"Litera: {litera}, Pozycja: {pozycja}");
             }
         }
@@ -106,10 +106,10 @@ class Program
         {
             foreach (var litera1 in pierwszaGrupa.Value)
             {
-                int y1 = char.ToUpper(litera1) - 'A' ; // pozycja w alfabecie (A=1)
+                int y1 = char.ToUpper(litera1) - 'A' ; 
                 foreach (var litera2 in drugaGrupa.Value)
                 {
-                    int y2 = char.ToUpper(litera2) - 'A' ; // pozycja w alfabecie (A=1)
+                    int y2 = char.ToUpper(litera2) - 'A' ; 
 
                     int diffX = (x2 - x1) % m;
                     int diffY = (y2 - y1 + m) % m;
@@ -136,11 +136,7 @@ class Program
             }
         }
 
-       /* Console.WriteLine($"\nKlucz a = {a}, b = {b}");
-
-        Console.WriteLine("\n=== ODSZYFROWANIE ===");
-        string plaintext = DecryptAffine(ciphertext, a, b);
-        Console.WriteLine(plaintext);*/
+     
     }
 
 }
