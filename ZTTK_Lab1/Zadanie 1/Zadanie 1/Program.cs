@@ -4,7 +4,7 @@ using System.Linq;
 
 class Program
 {
-    // Pomocnicza funkcja do obliczania odwrotności modularnej (rozszerzony algorytm Euklidesa)
+    // Pomocnicza funkcja do obliczania odwrotności modularnej
     static int ModInverse(int a, int m)
     {
         a %= m;
@@ -14,7 +14,7 @@ class Program
         throw new Exception($"Brak odwrotności modularnej dla a={a}, m={m}");
     }
 
-    // Funkcja deszyfrująca szyfrogram przy użyciu kluczy a, b
+    // Funkcja deszyfrująca szyfrogram
     static string DecryptAffine(string ciphertext, int a, int b)
     {
         int m = 26;
@@ -63,80 +63,132 @@ class Program
 
         return grouped;
     }
-   
+
+    // === NOWA FUNKCJA: HEURYSTYKA ===
+    // Ocenia tekst na podstawie popularnych angielskich słów
+    static int ScoreByCommonWords(string text)
+    {
+        int score = 0;
+        // Używamy spacji, aby upewnić się, że dopasowujemy całe słowa
+        string paddedText = " " + text.ToUpper() + " ";
+
+        // Lista popularnych słów (można rozszerzyć)
+        string[] commonWords = {
+            " THE ", " AND ", " FOR ", " YOU ", " ARE ", " WAS ", " IN ", " IS ",
+            " IT ", " OF ", " TO ", " I ", " A ", " IF ", " U ", " WE ", " GO ",
+            " ME ", " MY ", " KNOW ", " HOW ", " THEN ", " LIVE "
+        };
+
+        foreach (string word in commonWords)
+        {
+            // Proste 'Contains' jest wystarczające jako heurystyka
+            if (paddedText.Contains(word))
+            {
+                score++;
+            }
+        }
+        return score;
+    }
+
 
     static void Main()
     {
-        string ciphertext = "BIBOX WHX V NHFB DE YQBU V TYHOY YZ MOBHF DE";
+        string ciphertext = "U IAZPQD UR G WZAI TAI FTQK XUHQ UZ FAWKA UR G EQQZ UF FTQZ G YQMZ UF FTQZ G WZAI G TMHQ FA SA";
 
         Console.WriteLine("=== ANALIZA CZĘSTOŚCI ===");
         var grouped = GroupLetterOccurrences(ciphertext);
         foreach (var group in grouped)
             Console.WriteLine($"Wystąpień: {group.Key} -> Litery: {string.Join(", ", group.Value)}");
 
-        var pierwszaGrupa = grouped.ElementAtOrDefault(0);
-        var drugaGrupa = grouped.ElementAtOrDefault(1);
-
-        if (pierwszaGrupa.Value != null)
-            Console.WriteLine($"\nPierwsza grupa: Wystąpień: {pierwszaGrupa.Key}, Litery: {string.Join(", ", pierwszaGrupa.Value)}");
-        if (drugaGrupa.Value != null)
-            Console.WriteLine($"Druga grupa: Wystąpień: {drugaGrupa.Key}, Litery: {string.Join(", ", drugaGrupa.Value)}");
-
-
-        if (pierwszaGrupa.Value != null)
-            WypiszPozycjeLiter("Pozycje liter w pierwszej grupie", pierwszaGrupa.Value);
-        if (drugaGrupa.Value != null)
-            WypiszPozycjeLiter("Pozycje liter w drugiej grupie", drugaGrupa.Value);
-
-        void WypiszPozycjeLiter(string opis, List<char> litery)
-        {
-            Console.WriteLine($"\n{opis}:");
-            foreach (var litera in litery)
-            {
-                int pozycja = char.ToUpper(litera) - 'A';
-                Console.WriteLine($"Litera: {litera}, Pozycja: {pozycja}");
-            }
-        }
-
         int m = 26;
-        int x1 = 4;
-        int x2 = 19;
+        int[] commonPlain = { 4, 19, 0, 14, 8, 13 }; // E, T, A, O, I, N
+        var commonCipher = grouped.SelectMany(g => g.Value).Take(6).ToList();
 
-        if (pierwszaGrupa.Value != null && drugaGrupa.Value != null)
+        Console.WriteLine($"\nTestowane litery szyfrogramu: {string.Join(", ", commonCipher)}");
+        Console.WriteLine("Testowane litery tekstu jawnego: E, T, A, O, I, N");
+        Console.WriteLine("\n... Rozpoczynanie ataku kryptoanalitycznego ...\n");
+
+        int bestScore = -1;
+        string bestPlaintext = "";
+        int bestA = 0;
+        int bestB = 0;
+
+        // === NOWE ZMIENNE DO PRZECHOWYWANIA HIPOTEZY ===
+        char best_y1 = ' ', best_y2 = ' ', best_x1 = ' ', best_x2 = ' ';
+
+        foreach (char y1_char in commonCipher)
         {
-            foreach (var litera1 in pierwszaGrupa.Value)
+            foreach (char y2_char in commonCipher)
             {
-                int y1 = char.ToUpper(litera1) - 'A' ; 
-                foreach (var litera2 in drugaGrupa.Value)
+                if (y1_char == y2_char) continue;
+
+                foreach (int x1 in commonPlain)
                 {
-                    int y2 = char.ToUpper(litera2) - 'A' ; 
-
-                    int diffX = (x2 - x1) % m;
-                    int diffY = (y2 - y1 + m) % m;
-
-                    try
+                    foreach (int x2 in commonPlain)
                     {
-                        int inv = ModInverse(diffX, m);
-                        int a = (diffY * inv) % m;
-                        int b = (y1 - a * x1) % m;
-                        if (b < 0) b += m;
+                        if (x1 == x2) continue;
 
-                        Console.WriteLine($"Dla liter {litera1} (y1={y1}) i {litera2} (y2={y2}): a = {a}, b = {b}");
-                        Console.WriteLine($"\nKlucz a = {a}, b = {b}");
+                        int y1 = y1_char - 'A';
+                        int y2 = y2_char - 'A';
 
-                        Console.WriteLine("\n=== ODSZYFROWANIE ===");
-                        string plaintext = DecryptAffine(ciphertext, a, b);
-                        Console.WriteLine(plaintext);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Dla liter {litera1} i {litera2}: {ex.Message}");
+                        int diffX = (x2 - x1 + m) % m;
+                        int diffY = (y2 - y1 + m) % m;
+
+                        try
+                        {
+                            int inv = ModInverse(diffX, m);
+                            int a = (diffY * inv) % m;
+                            int b = (y1 - a * x1 + m * a) % m;
+
+                            string plaintext = DecryptAffine(ciphertext, a, b);
+                            int currentScore = ScoreByCommonWords(plaintext);
+
+                            if (currentScore > bestScore)
+                            {
+                                bestScore = currentScore;
+                                bestA = a;
+                                bestB = b;
+                                bestPlaintext = plaintext;
+
+                                // === ZAPISUJEMY ZWYCIĘSKĄ HIPOTEZĘ ===
+                                best_y1 = y1_char;
+                                best_y2 = y2_char;
+                                best_x1 = (char)('A' + x1);
+                                best_x2 = (char)('A' + x2);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            char x1_char = (char)('A' + x1);
+                            char x2_char = (char)('A' + x2);
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                            Console.WriteLine($"  [INFO] Hipoteza ({y1_char} -> {x1_char}), ({y2_char} -> {x2_char}) odrzucona. Powód: {ex.Message}");
+                            Console.ResetColor();
+                        }
                     }
                 }
             }
         }
 
-     
-    }
+        // Wyświetl tylko jeden, najlepszy wynik
+        Console.WriteLine("\n=== ATAK ZAKOŃCZONY ===");
+        if (bestScore > 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"\nNajlepszy znaleziony wynik (Ocena: {bestScore}):");
 
+            // === DODANA LINIA WYŚWIETLAJĄCA HIPOTEZĘ ===
+            Console.WriteLine($"Zwycięska hipoteza: ({best_y1} -> {best_x1}), ({best_y2} -> {best_x2})");
+
+            Console.WriteLine($"Klucz: a = {bestA}, b = {bestB}");
+            Console.WriteLine($"Tekst: {bestPlaintext}");
+            Console.ResetColor();
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Nie znaleziono prawdopodobnego tekstu jawnego. Spróbuj rozszerzyć listę słów w 'ScoreByCommonWords'.");
+            Console.ResetColor();
+        }
+    }
 }
