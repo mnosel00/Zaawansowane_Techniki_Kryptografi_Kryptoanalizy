@@ -97,7 +97,7 @@ class Program
             // Generowanie klucza RSA
             using (RSA rsa = RSA.Create(keySizeInBits))
             {
-                // Klucz jest generowany w momencie utworzenia obiektu
+                var parameters = rsa.ExportParameters(false);
             }
 
             singleStopwatch.Stop();
@@ -124,7 +124,7 @@ class Program
             using (Aes aes = Aes.Create())
             {
                 aes.KeySize = keySizeInBits;
-                // Klucz jest generowany (lub regenerowany) po ustawieniu tego pola
+                var key = aes.Key;
             }
 
             singleStopwatch.Stop();
@@ -152,6 +152,7 @@ class Program
             {
                 des.KeySize = keySizeInBits; // 192 bity (24 bajty)
                 des.GenerateKey(); // Upewniamy się, że klucz jest generowany
+
             }
 
             singleStopwatch.Stop();
