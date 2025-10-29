@@ -110,7 +110,7 @@ class Program
         int bestA = 0;
         int bestB = 0;
 
-        // === NOWE ZMIENNE DO PRZECHOWYWANIA HIPOTEZY ===
+        // === zmienne a i b Y ===
         char best_y1 = ' ', best_y2 = ' ', best_x1 = ' ', best_x2 = ' ';
 
         foreach (char y1_char in commonCipher)
@@ -128,8 +128,12 @@ class Program
                         int y1 = y1_char - 'A';
                         int y2 = y2_char - 'A';
 
+                        // (y2 - y1) = (a * x2 - a * x1) mod m (y2 - y1) = a * (x2 - x1) mod m
+
                         int diffX = (x2 - x1 + m) % m;
+                        //•	int diffX = (x2 - x1 + m) % m
                         int diffY = (y2 - y1 + m) % m;
+                        //•	int diffY = (y2 - y1 + m) % m
 
                         try
                         {
