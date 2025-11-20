@@ -7,10 +7,8 @@ class Program
 {
     static void Main(string[] args)
     {
-        // Uruchamiamy nasz benchmark generowania kluczy
         RunKeyGenerationBenchmarks();
 
-        // W przyszłości dodamy tutaj uruchomienie benchmarku szyfrowania
          RunEncryptionBenchmarks(); 
     }
 
@@ -26,21 +24,14 @@ class Program
             Console.WriteLine($"\n--- Testowanie dla {count} kluczy ---");
 
             // === RSA ===
-            // RSA jest BARDZO wolne w generowaniu kluczy. To operacja matematyczna
-            // polegająca na znalezieniu dużych liczb pierwszych.
             MeasureRsaKeyGen(2048, count);
             MeasureRsaKeyGen(3072, count);
-            // MeasureRsaKeyGen(4096, count); // Opcjonalnie, jak w zadaniu
 
             // === AES ===
-            // Generowanie kluczy symetrycznych to w zasadzie
-            // generowanie losowych bajtów. Powinno być błyskawiczne.
             MeasureAesKeyGen(128, count);
             MeasureAesKeyGen(256, count);
 
             // === 3DES ===
-            // Podobnie jak AES, powinno być bardzo szybkie.
-            // Używamy 192 bity (24 bajty), co odpowiada 168 bitom efektywnym (Keying Option 1).
             Measure3DesKeyGen(192, count);
         }
 
@@ -50,7 +41,6 @@ class Program
     {
         Console.WriteLine("\n============= Rozpoczynam pomiar szyfrowania/deszyfrowania =============");
 
-        // Definiujemy rozmiary danych (w bajtach)
         var dataSizes = new List<int>
     {
         128,                   // 128 B
@@ -67,7 +57,6 @@ class Program
         {
             Console.WriteLine($"\n--- Testowanie dla rozmiaru danych: {size / (1024.0 * 1024.0):F2} MB ({size} B) ---");
 
-            // Generujemy dane *raz* dla danego rozmiaru
             byte[] data = GenerateRandomBytes(size);
 
             // --- Testy AES ---
@@ -150,8 +139,8 @@ class Program
             // Generowanie klucza 3DES
             using (TripleDES des = TripleDES.Create())
             {
-                des.KeySize = keySizeInBits; // 192 bity (24 bajty)
-                des.GenerateKey(); // Upewniamy się, że klucz jest generowany
+                des.KeySize = keySizeInBits; 
+                des.GenerateKey(); 
 
             }
 
@@ -168,12 +157,10 @@ class Program
     }
     private static byte[] GenerateRandomBytes(int size)
     {
-        // Używamy bezpiecznego generatora liczb losowych
         return RandomNumberGenerator.GetBytes(size);
     }
     private static void MeasurePerformance(string title, int dataSizeInBytes, int iterations, int warmupIterations, Action operationToMeasure)
     {
-        // 1. Rozgrzewka (Warm-up)
         for (int i = 0; i < warmupIterations; i++)
         {
             operationToMeasure();
@@ -193,7 +180,6 @@ class Program
         // 3. Obliczenia i wyświetlenie statystyk
         StatisticsCalculator.CalculateAndPrint(title, timings);
 
-        // 4. Obliczenie przepustowości (Throughput)
         double averageTimeMs = timings.Average();
         double averageTimeSec = averageTimeMs / 1000.0;
         double dataSizeInMB = dataSizeInBytes / (1024.0 * 1024.0);
@@ -208,10 +194,10 @@ class Program
         int keySizeInBytes = keySizeInBits / 8;
         byte[] key = GenerateRandomBytes(keySizeInBytes);
 
-        // GCM wymaga "nonce" (numer użyty raz) - 12 bajtów to standard
+        // "nonce" (numer użyty raz)
         byte[] nonce = GenerateRandomBytes(12);
 
-        // GCM generuje "tag" uwierzytelniający - 16 bajtów to standard
+        //  "tag" uwierzytelniający - 16 bajtów 
         byte[] tag = new byte[16];
 
         byte[] encryptedData = new byte[data.Length];
@@ -229,7 +215,6 @@ class Program
                 warmupIterations: 2,
                 operationToMeasure: () =>
                 {
-                    // Szyfrujemy dane "w miejscu" (szyfrowane trafiają do encryptedData)
                     aesGcm.Encrypt(nonce, data, encryptedData, tag);
                 }
             );
@@ -242,7 +227,7 @@ class Program
                 warmupIterations: 2,
                 operationToMeasure: () =>
                 {
-                    // Deszyfrujemy dane "w miejscu" (odszyfrowane trafiają do decryptedData)
+                    // odszyfrowane trafiają do decryptedData
                     aesGcm.Decrypt(nonce, encryptedData, tag, decryptedData);
                 }
             );
@@ -251,7 +236,7 @@ class Program
     private static void Measure3DesCbc(byte[] data)
     {
         // Przygotowanie kluczy i buforów
-        // Klucz 192 bity (24 bajty) dla Keying Option 1 (efektywne 168 bitów)
+        // Klucz 192 bity (24 bajty) dla Keying Option
         using (var tdes = TripleDES.Create())
         {
             tdes.KeySize = 192;
@@ -259,8 +244,8 @@ class Program
             tdes.Padding = PaddingMode.PKCS7;
 
             // Generujemy klucz i IV (Initialization Vector)
-            byte[] key = tdes.Key; // Pobieramy wygenerowany klucz
-            byte[] iv = tdes.IV;   // Pobieramy wygenerowany IV
+            byte[] key = tdes.Key; // wygenerowany klucz
+            byte[] iv = tdes.IV;   // wygenerowany IV
 
             string title = $"3DES-168-CBC (Rozmiar: {data.Length} B)";
             byte[] encryptedData = null;
@@ -279,15 +264,14 @@ class Program
                         using (var cs = new CryptoStream(ms, tdes.CreateEncryptor(key, iv), CryptoStreamMode.Write))
                         {
                             cs.Write(data, 0, data.Length);
-                            cs.FlushFinalBlock(); // Ważne, aby zakończyć szyfrowanie
+                            cs.FlushFinalBlock(); 
                         }
                         encryptedData = ms.ToArray(); // Zapisujemy wynik do późniejszej deszyfracji
                     }
                 }
             );
 
-            // Musimy mieć dane zaszyfrowane *przed* pomiarem deszyfracji
-            // (Powyższa pętla już nam je ustawiła po ostatnim przebiegu)
+           
 
             // Pomiar deszyfrowania
             MeasurePerformance(
@@ -320,7 +304,6 @@ class Program
             return;
         }
 
-        // Generujemy *jeden* klucz na potrzeby tego testu
         using (var rsa = RSA.Create(keySizeInBits))
         {
             string title = $"RSA-{keySizeInBits}-OAEP-SHA256 (Rozmiar: {data.Length} B)";
@@ -356,7 +339,6 @@ class Program
 // Klasa pomocnicza do obliczeń statystycznych
 public static class StatisticsCalculator
 {
-    // Ta metoda policzy wszystko, czego potrzebujemy z jednej listy pomiarów
     public static void CalculateAndPrint(string title, List<double> measurementsMs)
     {
         if (measurementsMs == null || measurementsMs.Count == 0)
@@ -365,10 +347,8 @@ public static class StatisticsCalculator
             return;
         }
 
-        // Sortujemy listę, aby łatwo znaleźć medianę i percentyle
         measurementsMs.Sort();
 
-        // Obliczenia
         double sum = measurementsMs.Sum();
         double average = sum / measurementsMs.Count;
 
