@@ -9,7 +9,7 @@ using ZTTK_Lab3;
 
 namespace HashAnalysis
 {
-    // --- INTERFEJSY I WRAPPERY (Bez zmian) ---
+    // --- WRAPPERY (Bez zmian) ---
     public interface IHashFunction
     {
         string Name { get; }
@@ -45,12 +45,12 @@ namespace HashAnalysis
         public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); }
     }
 
-    // --- KLASA GŁÓWNA - TEST PREDYKCJI BITÓW ---
+    // --- TEST SERII ---
     class Program
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("=== ROZPOCZYNAM TEST PREDYKCJI BITÓW ===");
+            Console.WriteLine("=== ROZPOCZYNAM TEST SERII (WALD-WOLFOWITZ) ===");
 
             var functions = new List<IHashFunction>
             {
@@ -62,105 +62,114 @@ namespace HashAnalysis
             int sampleSize = 10000;
             Console.WriteLine($"Liczba próbek: {sampleSize}");
 
-            // Nagłówek tabeli
-            Console.WriteLine("\n{0,-15} | {1,-10} | {2,-10} | {3,-10} | {4,-10}",
-                "Funkcja", "Max P(1)", "Min P(1)", "Średnie P", "Max Z-score");
-            Console.WriteLine(new string('-', 75));
+            // Tabela wyników (Wzorowana na tabeli 4 z PDF)
+            Console.WriteLine("\n{0,-15} | {1,-8} | {2,-8} | {3,-8} | {4,-10} | {5,-10}",
+                "Funkcja", "Max Z", "Min Z", "AVG Z", "SD Z", "Fail Rate");
+            Console.WriteLine(new string('-', 85));
 
             foreach (var func in functions)
             {
-                RunBitPredictionTest(func, sampleSize);
+                RunSeriesTest(func, sampleSize);
             }
 
-            Console.WriteLine("\nGotowe! Wykresy predykcji (Prediction_*.png) zostały zapisane.");
+            Console.WriteLine("\nGotowe! Wykresy (Series_*.png) zostały zapisane.");
         }
 
-        static void RunBitPredictionTest(IHashFunction algo, int sampleSize)
+        static void RunSeriesTest(IHashFunction algo, int sampleSize)
         {
-            int hashBits = algo.HashSizeInBits; // 256
-            int[] onesCounts = new int[hashBits]; // Licznik jedynek dla każdej pozycji (0..255)
+            double[] zStatistics = new double[sampleSize];
+            double[] xAxis = DataGen.Consecutive(sampleSize);
             Random rand = new Random();
+            int fails = 0;
 
-            // 1. Pętla generująca próbki
             for (int i = 0; i < sampleSize; i++)
             {
-                byte[] input = new byte[32]; // Losowe wejście
+                // 1. Generuj losowy skrót
+                byte[] input = new byte[32];
                 rand.NextBytes(input);
                 byte[] hash = algo.ComputeHash(input);
 
-                // 2. Analiza bitów w uzyskanym skrócie
-                for (int byteIdx = 0; byteIdx < hash.Length; byteIdx++)
+                // 2. Analiza bitów (Liczenie n0, n1 i R)
+                int n0 = 0;
+                int n1 = 0;
+                int R = 1; // Zaczynamy od pierwszej serii
+                int? lastBit = null;
+
+                // Konwersja byte[] na strumień bitów
+                for (int b = 0; b < hash.Length; b++)
                 {
                     for (int bitIdx = 0; bitIdx < 8; bitIdx++)
                     {
-                        // Sprawdzamy czy bit jest ustawiony na 1
-                        // bitIdx 0 to najmniej znaczący bit w bajcie (lub najbardziej, zależy od konwencji, tutaj iterujemy wszystkie)
-                        byte mask = (byte)(1 << bitIdx);
-                        if ((hash[byteIdx] & mask) != 0)
+                        // Wyciągamy bit (0 lub 1)
+                        int currentBit = (hash[b] >> bitIdx) & 1;
+
+                        if (currentBit == 0) n0++;
+                        else n1++;
+
+                        if (lastBit.HasValue)
                         {
-                            int globalBitIndex = byteIdx * 8 + bitIdx;
-                            onesCounts[globalBitIndex]++;
+                            if (currentBit != lastBit.Value)
+                            {
+                                R++; // Zmiana wartości -> nowa seria
+                            }
                         }
+                        lastBit = currentBit;
                     }
                 }
+
+                // 3. Obliczenie statystyki Z (Wzory z PDF)
+                // Wzór (3.5): Expected R
+                double n = n0 + n1;
+                double expectedR = ((2.0 * n0 * n1) / n) + 1.0;
+
+                // Wzór (3.6): Standard Deviation
+                double numerator = 2.0 * n0 * n1 * (2.0 * n0 * n1 - n);
+                double denominator = Math.Pow(n, 2) * (n - 1);
+                double SD = Math.Sqrt(numerator / denominator);
+
+                // Wzór (3.4): Z statistic
+                // Używamy wartości bezwzględnej do wykresu i oceny, tak jak w analizie PDF
+                double z = Math.Abs((R - expectedR) / SD);
+                zStatistics[i] = z;
+
+                if (z > 1.96) fails++;
             }
 
-            // 3. Obliczenia statystyczne
-            double[] probabilities = new double[hashBits];
-            double[] xAxis = DataGen.Consecutive(hashBits);
+            // --- Statystyki ---
+            double avgZ = zStatistics.Average();
+            double maxZ = zStatistics.Max();
+            double minZ = zStatistics.Min();
 
-            double maxProb = 0;
-            double minProb = 100.0;
-            double sumProb = 0;
-            double maxAbsZ = 0;
+            // Odchylenie standardowe samej statystyki Z
+            double sumSquares = zStatistics.Sum(d => Math.Pow(d - avgZ, 2));
+            double sdZ = Math.Sqrt(sumSquares / (sampleSize - 1));
 
-            for (int j = 0; j < hashBits; j++)
-            {
-                double p = (double)onesCounts[j] / sampleSize * 100.0; // Procentowo
-                probabilities[j] = p;
+            double failRate = (double)fails / sampleSize * 100.0;
 
-                if (p > maxProb) maxProb = p;
-                if (p < minProb) minProb = p;
-                sumProb += p;
+            Console.WriteLine("{0,-15} | {1,-8:F2} | {2,-8:F2} | {3,-8:F2} | {4,-10:F2} | {5,-9:F2}%",
+                algo.Name, maxZ, minZ, avgZ, sdZ, failRate);
 
-                // Obliczanie statystyki Z dla pojedynczego bitu
-                // Z = (X - n*p0) / sqrt(n*p0*(1-p0))
-                // Gdzie X = liczba jedynek, n = 10000, p0 = 0.5
-                double expectedCount = sampleSize * 0.5;
-                double standardError = Math.Sqrt(sampleSize * 0.5 * 0.5);
-                double z = (onesCounts[j] - expectedCount) / standardError;
-
-                if (Math.Abs(z) > maxAbsZ) maxAbsZ = Math.Abs(z);
-            }
-
-            double avgProb = sumProb / hashBits;
-
-            // Wyświetlenie w konsoli
-            Console.WriteLine("{0,-15} | {1,-9:F2}% | {2,-9:F2}% | {3,-9:F2}% | {4,-10:F4}",
-                algo.Name, maxProb, minProb, avgProb, maxAbsZ);
-
-            // 4. Generowanie wykresu (Bar Plot / Scatter)
+            // --- Wykres ---
             var plt = new ScottPlot.Plot(800, 400);
-            plt.Title($"Test Predykcji Bitów: {algo.Name}");
-            plt.XLabel("Numer bitu (0-255)");
-            plt.YLabel("Prawdopodobieństwo '1' [%]");
+            plt.Title($"Test Serii: {algo.Name}");
+            plt.XLabel("Numer próbki");
+            plt.YLabel("Wartość statystyki Z (|Z|)");
 
-            // Ustawienie zakresu Y (np. 48% - 52%) żeby było widać fluktuacje, jak w artykule
-            plt.SetAxisLimitsY(48, 52);
-            plt.SetAxisLimitsX(0, 256);
+            // Ograniczenie osi Y, żeby wykres był czytelny (0 do 4.5 jak w PDF)
+            plt.SetAxisLimitsY(0, 5.0);
 
-            // Rysujemy jako "lizaki" (Lollipop plot) lub gęste słupki
-            var bar = plt.AddBar(probabilities);
-            bar.BarWidth = 0.8;
-            bar.Color = Color.Black; // Styl jak w artykule (czarne słupki)
+            var scatter = plt.AddScatter(xAxis, zStatistics);
+            scatter.LineWidth = 0;
+            scatter.MarkerSize = 2;
+            scatter.Color = Color.Gray;
 
-            // Linia idealna (50%)
-            var hLine = plt.AddHorizontalLine(50.0);
-            hLine.Color = Color.Red;
-            hLine.LineStyle = LineStyle.Dash;
+            // Linia krytyczna 1.96
+            var hLine = plt.AddHorizontalLine(1.96);
+            hLine.Color = Color.Black;
             hLine.LineWidth = 1;
+            hLine.LineStyle = LineStyle.Solid;
 
-            string fileName = $"Prediction_{algo.Name}.png";
+            string fileName = $"Series_{algo.Name}.png";
             plt.SaveFig(fileName);
         }
     }
