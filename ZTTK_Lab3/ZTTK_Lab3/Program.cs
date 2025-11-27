@@ -45,7 +45,7 @@ namespace HashAnalysis
         public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); }
     }
 
-    // --- KLASA GŁÓWNA - TEST PREDYKCJI BITÓW ---
+    //TEST PREDYKCJI BITÓW 
     class Program
     {
         static void Main(string[] args)
@@ -77,8 +77,8 @@ namespace HashAnalysis
 
         static void RunBitPredictionTest(IHashFunction algo, int sampleSize)
         {
-            int hashBits = algo.HashSizeInBits; // 256
-            int[] onesCounts = new int[hashBits]; // Licznik jedynek dla każdej pozycji (0..255)
+            int hashBits = algo.HashSizeInBits; 
+            int[] onesCounts = new int[hashBits]; 
             Random rand = new Random();
 
             // 1. Pętla generująca próbki
@@ -94,7 +94,6 @@ namespace HashAnalysis
                     for (int bitIdx = 0; bitIdx < 8; bitIdx++)
                     {
                         // Sprawdzamy czy bit jest ustawiony na 1
-                        // bitIdx 0 to najmniej znaczący bit w bajcie (lub najbardziej, zależy od konwencji, tutaj iterujemy wszystkie)
                         byte mask = (byte)(1 << bitIdx);
                         if ((hash[byteIdx] & mask) != 0)
                         {
@@ -116,7 +115,7 @@ namespace HashAnalysis
 
             for (int j = 0; j < hashBits; j++)
             {
-                double p = (double)onesCounts[j] / sampleSize * 100.0; // Procentowo
+                double p = (double)onesCounts[j] / sampleSize * 100.0; 
                 probabilities[j] = p;
 
                 if (p > maxProb) maxProb = p;
@@ -145,14 +144,14 @@ namespace HashAnalysis
             plt.XLabel("Numer bitu (0-255)");
             plt.YLabel("Prawdopodobieństwo '1' [%]");
 
-            // Ustawienie zakresu Y (np. 48% - 52%) żeby było widać fluktuacje, jak w artykule
+            // Ustawienie zakresu Y 
             plt.SetAxisLimitsY(48, 52);
             plt.SetAxisLimitsX(0, 256);
 
-            // Rysujemy jako "lizaki" (Lollipop plot) lub gęste słupki
+            
             var bar = plt.AddBar(probabilities);
             bar.BarWidth = 0.8;
-            bar.Color = Color.Black; // Styl jak w artykule (czarne słupki)
+            bar.Color = Color.Black;
 
             // Linia idealna (50%)
             var hLine = plt.AddHorizontalLine(50.0);
