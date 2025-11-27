@@ -2,16 +2,14 @@
 using ScottPlot;
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using ZTTK_Lab3;
 
 namespace HashAnalysis
 {
-    // --- INTERFEJSY I WRAPPERY (Te same co wcześniej) ---
+    // --- INTERFEJSY I WRAPPERY (Bez zmian) ---
     public interface IHashFunction
     {
         string Name { get; }
@@ -44,17 +42,16 @@ namespace HashAnalysis
     {
         public string Name => "ASCON-HASH-256";
         public int HashSizeInBits => 256;
-        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); } // Korzysta z Twojego pliku AsconHash.cs
+        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); }
     }
 
-    // --- KLASA DO TESTÓW ---
+    // --- KLASA GŁÓWNA - TEST PREDYKCJI BITÓW ---
     class Program
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("=== ROZPOCZYNAM TEST ODLEGŁOŚCI HAMMINGA ===");
+            Console.WriteLine("=== ROZPOCZYNAM TEST PREDYKCJI BITÓW ===");
 
-            // 1. Przygotowanie funkcji
             var functions = new List<IHashFunction>
             {
                 new Sha2Wrapper(),
@@ -62,103 +59,109 @@ namespace HashAnalysis
                 new AsconWrapper()
             };
 
-            int sampleSize = 10000; // Zgodnie z wymaganiami [cite: 256]
+            int sampleSize = 10000;
             Console.WriteLine($"Liczba próbek: {sampleSize}");
 
-            // Tabela wyników
-            Console.WriteLine("\n{0,-15} | {1,-5} | {2,-5} | {3,-10} | {4,-10} | {5,-10}",
-                "Funkcja", "Min", "Max", "Średnia", "Odchylenie", "Z-score");
-            Console.WriteLine(new string('-', 80));
+            // Nagłówek tabeli
+            Console.WriteLine("\n{0,-15} | {1,-10} | {2,-10} | {3,-10} | {4,-10}",
+                "Funkcja", "Max P(1)", "Min P(1)", "Średnie P", "Max Z-score");
+            Console.WriteLine(new string('-', 75));
 
             foreach (var func in functions)
             {
-                RunHammingTest(func, sampleSize);
+                RunBitPredictionTest(func, sampleSize);
             }
 
-            Console.WriteLine("\nGotowe! Wykresy zostały zapisane w folderze z plikiem wykonywalnym (bin/Debug/...).");
+            Console.WriteLine("\nGotowe! Wykresy predykcji (Prediction_*.png) zostały zapisane.");
         }
 
-        static void RunHammingTest(IHashFunction algo, int sampleSize)
+        static void RunBitPredictionTest(IHashFunction algo, int sampleSize)
         {
-            double[] distances = new double[sampleSize];
-            double[] xAxis = DataGen.Consecutive(sampleSize); // Oś X: 1, 2, 3...
+            int hashBits = algo.HashSizeInBits; // 256
+            int[] onesCounts = new int[hashBits]; // Licznik jedynek dla każdej pozycji (0..255)
             Random rand = new Random();
 
-            int inputSize = 32; // 256 bitów wejścia (tak jak długość wyjścia, dobra praktyka)
-
+            // 1. Pętla generująca próbki
             for (int i = 0; i < sampleSize; i++)
             {
-                // 1. Generuj losowy input
-                byte[] input1 = new byte[inputSize];
-                rand.NextBytes(input1);
+                byte[] input = new byte[32]; // Losowe wejście
+                rand.NextBytes(input);
+                byte[] hash = algo.ComputeHash(input);
 
-                // 2. Skopiuj i zmień DOKŁADNIE 1 losowy bit 
-                byte[] input2 = (byte[])input1.Clone();
-                int byteIndex = rand.Next(inputSize);
-                int bitIndex = rand.Next(8);
-                input2[byteIndex] ^= (byte)(1 << bitIndex);
-
-                // 3. Oblicz skróty
-                byte[] hash1 = algo.ComputeHash(input1);
-                byte[] hash2 = algo.ComputeHash(input2);
-
-               // 4. Oblicz dystans Hamminga 
-                distances[i] = CalculateHammingDistance(hash1, hash2);
-            }
-
-            // --- Analiza Statystyczna ---
-            double avg = distances.Average();
-            double min = distances.Min();
-            double max = distances.Max();
-            double sumSquares = distances.Sum(d => Math.Pow(d - avg, 2));
-            double stdDev = Math.Sqrt(sumSquares / (sampleSize - 1)); // [cite: 266, 311]
-
-            // Z-score: (Avg - Exp) / (SD / sqrt(N))
-          // Oczekiwana wartość: 50% długości skrótu = 128 bitów dla 256-bitowego hasha 
-            double expected = 128.0;
-            double zScore = Math.Abs((avg - expected) / (stdDev / Math.Sqrt(sampleSize))); // Wzór (3.1) z obrazka [cite: 266]
-
-            // Wyświetlenie w tabeli
-            Console.WriteLine("{0,-15} | {1,-5} | {2,-5} | {3,-10:F4} | {4,-10:F4} | {5,-10:F4}",
-                algo.Name, min, max, avg, stdDev, zScore);
-
-            // --- Generowanie Wykresu (ScottPlot) ---
-            var plt = new ScottPlot.Plot(800, 400);
-            plt.Title($"Test Odległości Hamminga: {algo.Name}");
-            plt.XLabel("Numer próbki");
-            plt.YLabel("Odległość Hamminga");
-
-            // Dodaj punkty (Scatter plot)
-            var scatter = plt.AddScatter(xAxis, distances);
-            scatter.LineWidth = 0; // Brak linii łączącej
-            scatter.MarkerSize = 2; // Małe kropki
-            scatter.Color = Color.Gray; // Kolor jak w artykule [cite: 272]
-
-            // Dodaj linię oczekiwaną (128)
-            var hLine = plt.AddHorizontalLine(expected);
-            hLine.Color = Color.Black;
-            hLine.LineWidth = 1;
-            hLine.LineStyle = LineStyle.Solid;
-
-            // Zapisz do pliku
-            string fileName = $"Hamming_{algo.Name}.png";
-            plt.SaveFig(fileName);
-        }
-
-        // Metoda pomocnicza do liczenia różnic bitów
-        static int CalculateHammingDistance(byte[] h1, byte[] h2)
-        {
-            int distance = 0;
-            for (int i = 0; i < h1.Length; i++)
-            {
-                byte val = (byte)(h1[i] ^ h2[i]); // XOR pokazuje różnice
-                while (val != 0)
+                // 2. Analiza bitów w uzyskanym skrócie
+                for (int byteIdx = 0; byteIdx < hash.Length; byteIdx++)
                 {
-                    distance++;
-                    val &= (byte)(val - 1); // Algorytm Kernighana do liczenia bitów
+                    for (int bitIdx = 0; bitIdx < 8; bitIdx++)
+                    {
+                        // Sprawdzamy czy bit jest ustawiony na 1
+                        // bitIdx 0 to najmniej znaczący bit w bajcie (lub najbardziej, zależy od konwencji, tutaj iterujemy wszystkie)
+                        byte mask = (byte)(1 << bitIdx);
+                        if ((hash[byteIdx] & mask) != 0)
+                        {
+                            int globalBitIndex = byteIdx * 8 + bitIdx;
+                            onesCounts[globalBitIndex]++;
+                        }
+                    }
                 }
             }
-            return distance;
+
+            // 3. Obliczenia statystyczne
+            double[] probabilities = new double[hashBits];
+            double[] xAxis = DataGen.Consecutive(hashBits);
+
+            double maxProb = 0;
+            double minProb = 100.0;
+            double sumProb = 0;
+            double maxAbsZ = 0;
+
+            for (int j = 0; j < hashBits; j++)
+            {
+                double p = (double)onesCounts[j] / sampleSize * 100.0; // Procentowo
+                probabilities[j] = p;
+
+                if (p > maxProb) maxProb = p;
+                if (p < minProb) minProb = p;
+                sumProb += p;
+
+                // Obliczanie statystyki Z dla pojedynczego bitu
+                // Z = (X - n*p0) / sqrt(n*p0*(1-p0))
+                // Gdzie X = liczba jedynek, n = 10000, p0 = 0.5
+                double expectedCount = sampleSize * 0.5;
+                double standardError = Math.Sqrt(sampleSize * 0.5 * 0.5);
+                double z = (onesCounts[j] - expectedCount) / standardError;
+
+                if (Math.Abs(z) > maxAbsZ) maxAbsZ = Math.Abs(z);
+            }
+
+            double avgProb = sumProb / hashBits;
+
+            // Wyświetlenie w konsoli
+            Console.WriteLine("{0,-15} | {1,-9:F2}% | {2,-9:F2}% | {3,-9:F2}% | {4,-10:F4}",
+                algo.Name, maxProb, minProb, avgProb, maxAbsZ);
+
+            // 4. Generowanie wykresu (Bar Plot / Scatter)
+            var plt = new ScottPlot.Plot(800, 400);
+            plt.Title($"Test Predykcji Bitów: {algo.Name}");
+            plt.XLabel("Numer bitu (0-255)");
+            plt.YLabel("Prawdopodobieństwo '1' [%]");
+
+            // Ustawienie zakresu Y (np. 48% - 52%) żeby było widać fluktuacje, jak w artykule
+            plt.SetAxisLimitsY(48, 52);
+            plt.SetAxisLimitsX(0, 256);
+
+            // Rysujemy jako "lizaki" (Lollipop plot) lub gęste słupki
+            var bar = plt.AddBar(probabilities);
+            bar.BarWidth = 0.8;
+            bar.Color = Color.Black; // Styl jak w artykule (czarne słupki)
+
+            // Linia idealna (50%)
+            var hLine = plt.AddHorizontalLine(50.0);
+            hLine.Color = Color.Red;
+            hLine.LineStyle = LineStyle.Dash;
+            hLine.LineWidth = 1;
+
+            string fileName = $"Prediction_{algo.Name}.png";
+            plt.SaveFig(fileName);
         }
     }
 }
