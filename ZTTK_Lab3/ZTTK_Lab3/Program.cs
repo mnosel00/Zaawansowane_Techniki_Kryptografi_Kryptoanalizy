@@ -9,7 +9,7 @@ using ZTTK_Lab3;
 
 namespace HashAnalysis
 {
-    // --- WRAPPERY (Bez zmian) ---
+   
     public interface IHashFunction
     {
         string Name { get; }
@@ -45,7 +45,7 @@ namespace HashAnalysis
         public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); }
     }
 
-    // --- TEST SERII ---
+    //TEST SERII
     class Program
     {
         static void Main(string[] args)
@@ -92,7 +92,7 @@ namespace HashAnalysis
                 // 2. Analiza bitów (Liczenie n0, n1 i R)
                 int n0 = 0;
                 int n1 = 0;
-                int R = 1; // Zaczynamy od pierwszej serii
+                int R = 1; 
                 int? lastBit = null;
 
                 // Konwersja byte[] na strumień bitów
@@ -118,7 +118,6 @@ namespace HashAnalysis
                 }
 
                 // 3. Obliczenie statystyki Z (Wzory z PDF)
-                // Wzór (3.5): Expected R
                 double n = n0 + n1;
                 double expectedR = ((2.0 * n0 * n1) / n) + 1.0;
 
@@ -128,7 +127,6 @@ namespace HashAnalysis
                 double SD = Math.Sqrt(numerator / denominator);
 
                 // Wzór (3.4): Z statistic
-                // Używamy wartości bezwzględnej do wykresu i oceny, tak jak w analizie PDF
                 double z = Math.Abs((R - expectedR) / SD);
                 zStatistics[i] = z;
 
@@ -155,7 +153,7 @@ namespace HashAnalysis
             plt.XLabel("Numer próbki");
             plt.YLabel("Wartość statystyki Z (|Z|)");
 
-            // Ograniczenie osi Y, żeby wykres był czytelny (0 do 4.5 jak w PDF)
+           
             plt.SetAxisLimitsY(0, 5.0);
 
             var scatter = plt.AddScatter(xAxis, zStatistics);
