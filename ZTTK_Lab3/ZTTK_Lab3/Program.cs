@@ -11,7 +11,6 @@ using ZTTK_Lab3;
 
 namespace HashAnalysis
 {
-    // --- INTERFEJSY I WRAPPERY (Te same co wcześniej) ---
     public interface IHashFunction
     {
         string Name { get; }
@@ -44,7 +43,7 @@ namespace HashAnalysis
     {
         public string Name => "ASCON-HASH-256";
         public int HashSizeInBits => 256;
-        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); } // Korzysta z Twojego pliku AsconHash.cs
+        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); } 
     }
 
     // --- KLASA DO TESTÓW ---
@@ -54,7 +53,6 @@ namespace HashAnalysis
         {
             Console.WriteLine("=== ROZPOCZYNAM TEST ODLEGŁOŚCI HAMMINGA ===");
 
-            // 1. Przygotowanie funkcji
             var functions = new List<IHashFunction>
             {
                 new Sha2Wrapper(),
@@ -62,7 +60,7 @@ namespace HashAnalysis
                 new AsconWrapper()
             };
 
-            int sampleSize = 10000; // Zgodnie z wymaganiami [cite: 256]
+            int sampleSize = 10000; 
             Console.WriteLine($"Liczba próbek: {sampleSize}");
 
             // Tabela wyników
@@ -81,10 +79,10 @@ namespace HashAnalysis
         static void RunHammingTest(IHashFunction algo, int sampleSize)
         {
             double[] distances = new double[sampleSize];
-            double[] xAxis = DataGen.Consecutive(sampleSize); // Oś X: 1, 2, 3...
+            double[] xAxis = DataGen.Consecutive(sampleSize); 
             Random rand = new Random();
 
-            int inputSize = 32; // 256 bitów wejścia (tak jak długość wyjścia, dobra praktyka)
+            int inputSize = 32; // 256 bitów wejścia 
 
             for (int i = 0; i < sampleSize; i++)
             {
@@ -92,7 +90,7 @@ namespace HashAnalysis
                 byte[] input1 = new byte[inputSize];
                 rand.NextBytes(input1);
 
-                // 2. Skopiuj i zmień DOKŁADNIE 1 losowy bit 
+                // 2. Skopiuj i zmień  1 losowy bit 
                 byte[] input2 = (byte[])input1.Clone();
                 int byteIndex = rand.Next(inputSize);
                 int bitIndex = rand.Next(8);
@@ -111,12 +109,12 @@ namespace HashAnalysis
             double min = distances.Min();
             double max = distances.Max();
             double sumSquares = distances.Sum(d => Math.Pow(d - avg, 2));
-            double stdDev = Math.Sqrt(sumSquares / (sampleSize - 1)); // [cite: 266, 311]
+            double stdDev = Math.Sqrt(sumSquares / (sampleSize - 1));
 
             // Z-score: (Avg - Exp) / (SD / sqrt(N))
-          // Oczekiwana wartość: 50% długości skrótu = 128 bitów dla 256-bitowego hasha 
+          // 50% długości skrótu = 128 bitów dla 256-bitowego hasha 
             double expected = 128.0;
-            double zScore = Math.Abs((avg - expected) / (stdDev / Math.Sqrt(sampleSize))); // Wzór (3.1) z obrazka [cite: 266]
+            double zScore = Math.Abs((avg - expected) / (stdDev / Math.Sqrt(sampleSize))); 
 
             // Wyświetlenie w tabeli
             Console.WriteLine("{0,-15} | {1,-5} | {2,-5} | {3,-10:F4} | {4,-10:F4} | {5,-10:F4}",
@@ -130,9 +128,9 @@ namespace HashAnalysis
 
             // Dodaj punkty (Scatter plot)
             var scatter = plt.AddScatter(xAxis, distances);
-            scatter.LineWidth = 0; // Brak linii łączącej
-            scatter.MarkerSize = 2; // Małe kropki
-            scatter.Color = Color.Gray; // Kolor jak w artykule [cite: 272]
+            scatter.LineWidth = 0; 
+            scatter.MarkerSize = 2; 
+            scatter.Color = Color.Gray; 
 
             // Dodaj linię oczekiwaną (128)
             var hLine = plt.AddHorizontalLine(expected);
@@ -145,17 +143,17 @@ namespace HashAnalysis
             plt.SaveFig(fileName);
         }
 
-        // Metoda pomocnicza do liczenia różnic bitów
+        // Metoda do liczenia różnic bitów
         static int CalculateHammingDistance(byte[] h1, byte[] h2)
         {
             int distance = 0;
             for (int i = 0; i < h1.Length; i++)
             {
-                byte val = (byte)(h1[i] ^ h2[i]); // XOR pokazuje różnice
+                byte val = (byte)(h1[i] ^ h2[i]); 
                 while (val != 0)
                 {
                     distance++;
-                    val &= (byte)(val - 1); // Algorytm Kernighana do liczenia bitów
+                    val &= (byte)(val - 1); 
                 }
             }
             return distance;
