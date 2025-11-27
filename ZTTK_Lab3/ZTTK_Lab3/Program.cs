@@ -9,7 +9,7 @@ using ZTTK_Lab3;
 
 namespace HashAnalysis
 {
-   
+    // --- INTERFEJSY I WRAPPERY (Te same co wcześniej) ---
     public interface IHashFunction
     {
         string Name { get; }
@@ -42,7 +42,7 @@ namespace HashAnalysis
     {
         public string Name => "ASCON-HASH-256";
         public int HashSizeInBits => 256;
-        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); }
+        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); } // Korzysta z Twojego pliku AsconHash.cs
     }
 
     //TEST SERII
@@ -59,7 +59,7 @@ namespace HashAnalysis
                 new AsconWrapper()
             };
 
-            int sampleSize = 10000;
+            int sampleSize = 10000; // Zgodnie z wymaganiami [cite: 256]
             Console.WriteLine($"Liczba próbek: {sampleSize}");
 
             // Tabela wyników (Wzorowana na tabeli 4 z PDF)
@@ -77,10 +77,12 @@ namespace HashAnalysis
 
         static void RunSeriesTest(IHashFunction algo, int sampleSize)
         {
-            double[] zStatistics = new double[sampleSize];
-            double[] xAxis = DataGen.Consecutive(sampleSize);
+            double[] distances = new double[sampleSize];
+            double[] xAxis = DataGen.Consecutive(sampleSize); // Oś X: 1, 2, 3...
             Random rand = new Random();
             int fails = 0;
+
+            int inputSize = 32; // 256 bitów wejścia (tak jak długość wyjścia, dobra praktyka)
 
             for (int i = 0; i < sampleSize; i++)
             {
@@ -89,42 +91,11 @@ namespace HashAnalysis
                 rand.NextBytes(input);
                 byte[] hash = algo.ComputeHash(input);
 
-                // 2. Analiza bitów (Liczenie n0, n1 i R)
-                int n0 = 0;
-                int n1 = 0;
-                int R = 1; 
-                int? lastBit = null;
-
-                // Konwersja byte[] na strumień bitów
-                for (int b = 0; b < hash.Length; b++)
-                {
-                    for (int bitIdx = 0; bitIdx < 8; bitIdx++)
-                    {
-                        // Wyciągamy bit (0 lub 1)
-                        int currentBit = (hash[b] >> bitIdx) & 1;
-
-                        if (currentBit == 0) n0++;
-                        else n1++;
-
-                        if (lastBit.HasValue)
-                        {
-                            if (currentBit != lastBit.Value)
-                            {
-                                R++; // Zmiana wartości -> nowa seria
-                            }
-                        }
-                        lastBit = currentBit;
-                    }
-                }
-
-                // 3. Obliczenie statystyki Z (Wzory z PDF)
-                double n = n0 + n1;
-                double expectedR = ((2.0 * n0 * n1) / n) + 1.0;
-
-                // Wzór (3.6): Standard Deviation
-                double numerator = 2.0 * n0 * n1 * (2.0 * n0 * n1 - n);
-                double denominator = Math.Pow(n, 2) * (n - 1);
-                double SD = Math.Sqrt(numerator / denominator);
+                // 2. Skopiuj i zmień DOKŁADNIE 1 losowy bit 
+                byte[] input2 = (byte[])input1.Clone();
+                int byteIndex = rand.Next(inputSize);
+                int bitIndex = rand.Next(8);
+                input2[byteIndex] ^= (byte)(1 << bitIndex);
 
                 // Wzór (3.4): Z statistic
                 double z = Math.Abs((R - expectedR) / SD);
@@ -133,16 +104,17 @@ namespace HashAnalysis
                 if (z > 1.96) fails++;
             }
 
-            // --- Statystyki ---
-            double avgZ = zStatistics.Average();
-            double maxZ = zStatistics.Max();
-            double minZ = zStatistics.Min();
+            // --- Analiza Statystyczna ---
+            double avg = distances.Average();
+            double min = distances.Min();
+            double max = distances.Max();
+            double sumSquares = distances.Sum(d => Math.Pow(d - avg, 2));
+            double stdDev = Math.Sqrt(sumSquares / (sampleSize - 1)); // [cite: 266, 311]
 
-            // Odchylenie standardowe samej statystyki Z
-            double sumSquares = zStatistics.Sum(d => Math.Pow(d - avgZ, 2));
-            double sdZ = Math.Sqrt(sumSquares / (sampleSize - 1));
-
-            double failRate = (double)fails / sampleSize * 100.0;
+            // Z-score: (Avg - Exp) / (SD / sqrt(N))
+          // Oczekiwana wartość: 50% długości skrótu = 128 bitów dla 256-bitowego hasha 
+            double expected = 128.0;
+            double zScore = Math.Abs((avg - expected) / (stdDev / Math.Sqrt(sampleSize))); // Wzór (3.1) z obrazka [cite: 266]
 
             Console.WriteLine("{0,-15} | {1,-8:F2} | {2,-8:F2} | {3,-8:F2} | {4,-10:F2} | {5,-9:F2}%",
                 algo.Name, maxZ, minZ, avgZ, sdZ, failRate);
@@ -156,10 +128,11 @@ namespace HashAnalysis
            
             plt.SetAxisLimitsY(0, 5.0);
 
-            var scatter = plt.AddScatter(xAxis, zStatistics);
-            scatter.LineWidth = 0;
-            scatter.MarkerSize = 2;
-            scatter.Color = Color.Gray;
+            // Dodaj punkty (Scatter plot)
+            var scatter = plt.AddScatter(xAxis, distances);
+            scatter.LineWidth = 0; // Brak linii łączącej
+            scatter.MarkerSize = 2; // Małe kropki
+            scatter.Color = Color.Gray; // Kolor jak w artykule [cite: 272]
 
             // Linia krytyczna 1.96
             var hLine = plt.AddHorizontalLine(1.96);
@@ -169,6 +142,22 @@ namespace HashAnalysis
 
             string fileName = $"Series_{algo.Name}.png";
             plt.SaveFig(fileName);
+        }
+
+        // Metoda pomocnicza do liczenia różnic bitów
+        static int CalculateHammingDistance(byte[] h1, byte[] h2)
+        {
+            int distance = 0;
+            for (int i = 0; i < h1.Length; i++)
+            {
+                byte val = (byte)(h1[i] ^ h2[i]); // XOR pokazuje różnice
+                while (val != 0)
+                {
+                    distance++;
+                    val &= (byte)(val - 1); // Algorytm Kernighana do liczenia bitów
+                }
+            }
+            return distance;
         }
     }
 }
