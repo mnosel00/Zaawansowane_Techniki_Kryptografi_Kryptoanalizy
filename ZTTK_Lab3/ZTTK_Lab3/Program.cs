@@ -2,15 +2,14 @@
 using ScottPlot;
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using ZTTK_Lab3;
 
 namespace HashAnalysis
 {
+   
     public interface IHashFunction
     {
         string Name { get; }
@@ -43,15 +42,15 @@ namespace HashAnalysis
     {
         public string Name => "ASCON-HASH-256";
         public int HashSizeInBits => 256;
-        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); } 
+        public byte[] ComputeHash(byte[] input) { return AsconHash.ComputeHash(input); }
     }
 
-    // --- KLASA DO TESTÓW ---
+    //TEST SERII
     class Program
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("=== ROZPOCZYNAM TEST ODLEGŁOŚCI HAMMINGA ===");
+            Console.WriteLine("=== ROZPOCZYNAM TEST SERII (WALD-WOLFOWITZ) ===");
 
             var functions = new List<IHashFunction>
             {
@@ -60,103 +59,116 @@ namespace HashAnalysis
                 new AsconWrapper()
             };
 
-            int sampleSize = 10000; 
+            int sampleSize = 10000;
             Console.WriteLine($"Liczba próbek: {sampleSize}");
 
-            // Tabela wyników
-            Console.WriteLine("\n{0,-15} | {1,-5} | {2,-5} | {3,-10} | {4,-10} | {5,-10}",
-                "Funkcja", "Min", "Max", "Średnia", "Odchylenie", "Z-score");
-            Console.WriteLine(new string('-', 80));
+            // Tabela wyników (Wzorowana na tabeli 4 z PDF)
+            Console.WriteLine("\n{0,-15} | {1,-8} | {2,-8} | {3,-8} | {4,-10} | {5,-10}",
+                "Funkcja", "Max Z", "Min Z", "AVG Z", "SD Z", "Fail Rate");
+            Console.WriteLine(new string('-', 85));
 
             foreach (var func in functions)
             {
-                RunHammingTest(func, sampleSize);
+                RunSeriesTest(func, sampleSize);
             }
 
-            Console.WriteLine("\nGotowe! Wykresy zostały zapisane w folderze z plikiem wykonywalnym (bin/Debug/...).");
+            Console.WriteLine("\nGotowe! Wykresy (Series_*.png) zostały zapisane.");
         }
 
-        static void RunHammingTest(IHashFunction algo, int sampleSize)
+        static void RunSeriesTest(IHashFunction algo, int sampleSize)
         {
-            double[] distances = new double[sampleSize];
-            double[] xAxis = DataGen.Consecutive(sampleSize); 
+            double[] zStatistics = new double[sampleSize];
+            double[] xAxis = DataGen.Consecutive(sampleSize);
             Random rand = new Random();
-
-            int inputSize = 32; // 256 bitów wejścia 
+            int fails = 0;
 
             for (int i = 0; i < sampleSize; i++)
             {
-                // 1. Generuj losowy input
-                byte[] input1 = new byte[inputSize];
-                rand.NextBytes(input1);
+                // 1. Generuj losowy skrót
+                byte[] input = new byte[32];
+                rand.NextBytes(input);
+                byte[] hash = algo.ComputeHash(input);
 
-                // 2. Skopiuj i zmień  1 losowy bit 
-                byte[] input2 = (byte[])input1.Clone();
-                int byteIndex = rand.Next(inputSize);
-                int bitIndex = rand.Next(8);
-                input2[byteIndex] ^= (byte)(1 << bitIndex);
+                // 2. Analiza bitów (Liczenie n0, n1 i R)
+                int n0 = 0;
+                int n1 = 0;
+                int R = 1; 
+                int? lastBit = null;
 
-                // 3. Oblicz skróty
-                byte[] hash1 = algo.ComputeHash(input1);
-                byte[] hash2 = algo.ComputeHash(input2);
+                // Konwersja byte[] na strumień bitów
+                for (int b = 0; b < hash.Length; b++)
+                {
+                    for (int bitIdx = 0; bitIdx < 8; bitIdx++)
+                    {
+                        // Wyciągamy bit (0 lub 1)
+                        int currentBit = (hash[b] >> bitIdx) & 1;
 
-               // 4. Oblicz dystans Hamminga 
-                distances[i] = CalculateHammingDistance(hash1, hash2);
+                        if (currentBit == 0) n0++;
+                        else n1++;
+
+                        if (lastBit.HasValue)
+                        {
+                            if (currentBit != lastBit.Value)
+                            {
+                                R++; // Zmiana wartości -> nowa seria
+                            }
+                        }
+                        lastBit = currentBit;
+                    }
+                }
+
+                // 3. Obliczenie statystyki Z (Wzory z PDF)
+                double n = n0 + n1;
+                double expectedR = ((2.0 * n0 * n1) / n) + 1.0;
+
+                // Wzór (3.6): Standard Deviation
+                double numerator = 2.0 * n0 * n1 * (2.0 * n0 * n1 - n);
+                double denominator = Math.Pow(n, 2) * (n - 1);
+                double SD = Math.Sqrt(numerator / denominator);
+
+                // Wzór (3.4): Z statistic
+                double z = Math.Abs((R - expectedR) / SD);
+                zStatistics[i] = z;
+
+                if (z > 1.96) fails++;
             }
 
-            // --- Analiza Statystyczna ---
-            double avg = distances.Average();
-            double min = distances.Min();
-            double max = distances.Max();
-            double sumSquares = distances.Sum(d => Math.Pow(d - avg, 2));
-            double stdDev = Math.Sqrt(sumSquares / (sampleSize - 1));
+            // --- Statystyki ---
+            double avgZ = zStatistics.Average();
+            double maxZ = zStatistics.Max();
+            double minZ = zStatistics.Min();
 
-            // Z-score: (Avg - Exp) / (SD / sqrt(N))
-          // 50% długości skrótu = 128 bitów dla 256-bitowego hasha 
-            double expected = 128.0;
-            double zScore = Math.Abs((avg - expected) / (stdDev / Math.Sqrt(sampleSize))); 
+            // Odchylenie standardowe samej statystyki Z
+            double sumSquares = zStatistics.Sum(d => Math.Pow(d - avgZ, 2));
+            double sdZ = Math.Sqrt(sumSquares / (sampleSize - 1));
 
-            // Wyświetlenie w tabeli
-            Console.WriteLine("{0,-15} | {1,-5} | {2,-5} | {3,-10:F4} | {4,-10:F4} | {5,-10:F4}",
-                algo.Name, min, max, avg, stdDev, zScore);
+            double failRate = (double)fails / sampleSize * 100.0;
 
-            // --- Generowanie Wykresu (ScottPlot) ---
+            Console.WriteLine("{0,-15} | {1,-8:F2} | {2,-8:F2} | {3,-8:F2} | {4,-10:F2} | {5,-9:F2}%",
+                algo.Name, maxZ, minZ, avgZ, sdZ, failRate);
+
+            // --- Wykres ---
             var plt = new ScottPlot.Plot(800, 400);
-            plt.Title($"Test Odległości Hamminga: {algo.Name}");
+            plt.Title($"Test Serii: {algo.Name}");
             plt.XLabel("Numer próbki");
-            plt.YLabel("Odległość Hamminga");
+            plt.YLabel("Wartość statystyki Z (|Z|)");
 
-            // Dodaj punkty (Scatter plot)
-            var scatter = plt.AddScatter(xAxis, distances);
-            scatter.LineWidth = 0; 
-            scatter.MarkerSize = 2; 
-            scatter.Color = Color.Gray; 
+           
+            plt.SetAxisLimitsY(0, 5.0);
 
-            // Dodaj linię oczekiwaną (128)
-            var hLine = plt.AddHorizontalLine(expected);
+            var scatter = plt.AddScatter(xAxis, zStatistics);
+            scatter.LineWidth = 0;
+            scatter.MarkerSize = 2;
+            scatter.Color = Color.Gray;
+
+            // Linia krytyczna 1.96
+            var hLine = plt.AddHorizontalLine(1.96);
             hLine.Color = Color.Black;
             hLine.LineWidth = 1;
             hLine.LineStyle = LineStyle.Solid;
 
-            // Zapisz do pliku
-            string fileName = $"Hamming_{algo.Name}.png";
+            string fileName = $"Series_{algo.Name}.png";
             plt.SaveFig(fileName);
-        }
-
-        // Metoda do liczenia różnic bitów
-        static int CalculateHammingDistance(byte[] h1, byte[] h2)
-        {
-            int distance = 0;
-            for (int i = 0; i < h1.Length; i++)
-            {
-                byte val = (byte)(h1[i] ^ h2[i]); 
-                while (val != 0)
-                {
-                    distance++;
-                    val &= (byte)(val - 1); 
-                }
-            }
-            return distance;
         }
     }
 }
