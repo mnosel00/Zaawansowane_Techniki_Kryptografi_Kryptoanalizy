@@ -78,6 +78,28 @@ public class Shamir
         return secret;
     }
 
+    // Generowanie udziału dla nowego użytkownika (bez zmiany sekretu)
+    // Wynik P(newId) używając tych samych współczynników
+    public static Share CreateNewShare(int newId, BigInteger[] coefficients, BigInteger prime)
+    {
+        BigInteger y = 0;
+        BigInteger x_pow = 1; // x^0
+
+        for (int i = 0; i < coefficients.Length; i++)
+        {
+            // term = a_i * x^i
+            BigInteger term = (coefficients[i] * x_pow);
+            y = (y + term);
+
+            // Zwiększamy potęgę x
+            x_pow = (x_pow * newId);
+        }
+
+        y = ZTTK_Lab4.Math.Mod(y, prime);
+
+        return new Share(newId, y);
+    }
+
     // logika wyliczania punktów wielomianu 
     // s_i = P(i) mod q
     private static List<Share> GenerateShares(BigInteger[] coefficients, int n, BigInteger prime)

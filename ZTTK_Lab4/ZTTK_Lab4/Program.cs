@@ -6,48 +6,34 @@ class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine("Rekonstrukcja Sekretu (Lagrange)");
+        Console.WriteLine("Dodawanie nowego użytkownika");
 
-        // Dane testowe (te same co wcześniej)
         BigInteger prime = 11;
-        int t = 3; // Próg
+        BigInteger[] coefficients = { 10, 7, 2 }; // Ten sam wielomian: 10 + 7x + 2x^2
 
-        // Zestaw udziałów wyliczony w poprzednim kroku:
-        // (1, 8), (2, 10), (3, 5), (4, 4), (5, 7)
-        List<Share> allShares = new List<Share>
-        {
-            new Share(1, 8),
-            new Share(2, 10),
-            new Share(3, 5),
-            new Share(4, 4),
-            new Share(5, 7)
-        };
+        // Stare udziały 
+        Share s1 = new Share(1, 8);
+        Share s2 = new Share(2, 10);
 
-        Console.WriteLine("Oryginalny sekret: 10");
-        Console.WriteLine($"Próg t: {t}");
+        Console.WriteLine(" Old user 1 i 2.");
 
-        //Rekonstrukcja z 3 udziałów 
-        //udziały 1, 3, 5
-        // P(1), P(2), P(3) -> program używa  1, 3, 5
-        List<Share> subsetT = new List<Share> { allShares[0], allShares[2], allShares[4] };
+        // 1. Generujemy udział dla użytkownika nr 6
+        Console.WriteLine("Generowanie udziału dla nowego Użytkownika 6...");
+        Share sNew = Shamir.CreateNewShare(6, coefficients, prime);
+        Console.WriteLine($"Nowy udział: ID={sNew.ID}, Value={sNew.Value}");
 
-        Console.WriteLine("\nPróba odzyskania z 3 udziałów (ID: 1, 3, 5)");
-        BigInteger recoveredA = Shamir.RecoverSecret(subsetT, prime);
-        Console.WriteLine($"Odzyskany sekret: {recoveredA}");
+        // 2. Próba rekonstrukcji (Stary 1 + Stary 2 + Nowy 6) = 3 udziały (wymagane t=3)
+        List<Share> mixedGroup = new List<Share> { s1, s2, sNew };
 
-        if (recoveredA == 10) Console.WriteLine("-> SUKCES: Sekret poprawny.");
-        else Console.WriteLine("-> BŁĄD: Sekret niepoprawny.");
+        Console.WriteLine("\nPróba rekonstrukcji z zestawu {1, 2, 6}:");
+        BigInteger recovered = Shamir.RecoverSecret(mixedGroup, prime);
 
+        Console.WriteLine($"Odzyskany sekret: {recovered}");
 
-        // Rekonstrukcja z 2 udziałów
-        List<Share> subsetLess = new List<Share> { allShares[0], allShares[4] };
-
-        Console.WriteLine("\nPróba odzyskania z 2 udziałów (ID: 1, 5)");
-        BigInteger recoveredB = Shamir.RecoverSecret(subsetLess, prime);
-        Console.WriteLine($"Odzyskany sekret: {recoveredB}");
-
-        if (recoveredB != 10) Console.WriteLine("-> SUKCES: sekret jest błędny (bezpieczny).");
-        else Console.WriteLine("-> BŁĄD: Udało się odgadnąć sekret mimo braku udziałów");
+        if (recovered == 10)
+            Console.WriteLine("-> SUKCES: Nowy udział działa poprawnie ze starymi.");
+        else
+            Console.WriteLine("-> BŁĄD: Coś poszło nie tak.");
 
         Console.ReadLine();
     }
