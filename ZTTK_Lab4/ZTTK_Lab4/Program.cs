@@ -1,29 +1,39 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
-
 
 class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine(" Arytmetyka Modulo");
+        Console.WriteLine(" Generowanie Udziałów ");
 
+        
         BigInteger prime = 11;
+        int n = 5;
+        // Wielomian P(x) = 10 + 7x + 2x^2  (Sekret = 10)
+        // Tablica współczynników [a0, a1, a2] -> [10, 7, 2]
+        BigInteger[] testCoefficients = { 10, 7, 2 };
 
-        // Test 1: Modulo dla liczb ujemnych
-        // Slajd 13 pokazuje wynik -1 mod 11 = 10 
-        BigInteger negativeVal = -1;
-        BigInteger modResult = ZTTK_Lab4.Math.Mod(negativeVal, prime);
-        Console.WriteLine($"1. Test Modulo: -1 mod 11 = {modResult} (Oczekiwane: 10)");
+        Console.WriteLine($"Wielomian: 2x^2 + 7x + 10 (mod 11)");
+        Console.WriteLine($"Sekret: {testCoefficients[0]}");
 
-        // Test 2: Odwrotność modulo (Dzielenie)
-        // 2 * x = 1 mod 11.  Na przykład =6, bo 2*6 = 12 = 1 mod 11.
-        BigInteger a = 2;
-        BigInteger inverse = ZTTK_Lab4.Math.ModInverse(a, prime);
-        Console.WriteLine($"2. Test Odwrotności: 1/{a} mod 11 = {inverse} (Oczekiwane: 6)");
-        Console.WriteLine($"   Sprawdzenie: {a} * {inverse} = {a * inverse} = {(a * inverse) % prime} mod 11");
+        // TEST
+        List<Share> shares = Shamir.SplitSecretWithCoefficients(testCoefficients, n, prime);
 
-        Console.WriteLine("\nJeśli wyniki są zgodne z oczekiwanymi, matematyka działa.");
+        Console.WriteLine("\nWyliczone udziały:");
+        foreach (var share in shares)
+        {
+            Console.WriteLine($"Użytkownik {share.ID}: Udział {share.Value}");
+        }
+
+        Console.WriteLine("\nOczekiwane wartości");
+        Console.WriteLine("x=1 -> 8");
+        Console.WriteLine("x=2 -> 10");
+        Console.WriteLine("x=3 -> 5");
+        Console.WriteLine("x=4 -> 4");
+        Console.WriteLine("x=5 -> 7");
+
         Console.ReadLine();
     }
 }
