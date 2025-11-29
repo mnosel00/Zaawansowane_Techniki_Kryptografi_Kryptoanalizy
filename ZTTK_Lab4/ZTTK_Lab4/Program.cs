@@ -6,33 +6,48 @@ class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine(" Generowanie Udziałów ");
+        Console.WriteLine("Rekonstrukcja Sekretu (Lagrange)");
 
-        
+        // Dane testowe (te same co wcześniej)
         BigInteger prime = 11;
-        int n = 5;
-        // Wielomian P(x) = 10 + 7x + 2x^2  (Sekret = 10)
-        // Tablica współczynników [a0, a1, a2] -> [10, 7, 2]
-        BigInteger[] testCoefficients = { 10, 7, 2 };
+        int t = 3; // Próg
 
-        Console.WriteLine($"Wielomian: 2x^2 + 7x + 10 (mod 11)");
-        Console.WriteLine($"Sekret: {testCoefficients[0]}");
-
-        // TEST
-        List<Share> shares = Shamir.SplitSecretWithCoefficients(testCoefficients, n, prime);
-
-        Console.WriteLine("\nWyliczone udziały:");
-        foreach (var share in shares)
+        // Zestaw udziałów wyliczony w poprzednim kroku:
+        // (1, 8), (2, 10), (3, 5), (4, 4), (5, 7)
+        List<Share> allShares = new List<Share>
         {
-            Console.WriteLine($"Użytkownik {share.ID}: Udział {share.Value}");
-        }
+            new Share(1, 8),
+            new Share(2, 10),
+            new Share(3, 5),
+            new Share(4, 4),
+            new Share(5, 7)
+        };
 
-        Console.WriteLine("\nOczekiwane wartości");
-        Console.WriteLine("x=1 -> 8");
-        Console.WriteLine("x=2 -> 10");
-        Console.WriteLine("x=3 -> 5");
-        Console.WriteLine("x=4 -> 4");
-        Console.WriteLine("x=5 -> 7");
+        Console.WriteLine("Oryginalny sekret: 10");
+        Console.WriteLine($"Próg t: {t}");
+
+        //Rekonstrukcja z 3 udziałów 
+        //udziały 1, 3, 5
+        // P(1), P(2), P(3) -> program używa  1, 3, 5
+        List<Share> subsetT = new List<Share> { allShares[0], allShares[2], allShares[4] };
+
+        Console.WriteLine("\nPróba odzyskania z 3 udziałów (ID: 1, 3, 5)");
+        BigInteger recoveredA = Shamir.RecoverSecret(subsetT, prime);
+        Console.WriteLine($"Odzyskany sekret: {recoveredA}");
+
+        if (recoveredA == 10) Console.WriteLine("-> SUKCES: Sekret poprawny.");
+        else Console.WriteLine("-> BŁĄD: Sekret niepoprawny.");
+
+
+        // Rekonstrukcja z 2 udziałów
+        List<Share> subsetLess = new List<Share> { allShares[0], allShares[4] };
+
+        Console.WriteLine("\nPróba odzyskania z 2 udziałów (ID: 1, 5)");
+        BigInteger recoveredB = Shamir.RecoverSecret(subsetLess, prime);
+        Console.WriteLine($"Odzyskany sekret: {recoveredB}");
+
+        if (recoveredB != 10) Console.WriteLine("-> SUKCES: sekret jest błędny (bezpieczny).");
+        else Console.WriteLine("-> BŁĄD: Udało się odgadnąć sekret mimo braku udziałów");
 
         Console.ReadLine();
     }

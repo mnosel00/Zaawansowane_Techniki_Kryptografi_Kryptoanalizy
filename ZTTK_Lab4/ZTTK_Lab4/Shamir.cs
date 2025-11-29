@@ -39,6 +39,45 @@ public class Shamir
         return GenerateShares(coefficients, n, prime);
     }
 
+    // metoda Interpolacji Lagrange'a
+    public static BigInteger RecoverSecret(List<Share> shares, BigInteger prime)
+    {
+        BigInteger secret = 0;
+
+        // Suma iloczynów (S = suma(y_j * L_j(0)))
+        foreach (var share_j in shares)
+        {
+            BigInteger xj = share_j.ID;
+            BigInteger yj = share_j.Value;
+
+            // wynik wielomianu bazowego Lagrange'a L_j(0)
+            // L_j(0) = iloczyn ( (0 - xm) / (xj - xm) ) dla wszystkich m != j
+            BigInteger numerator = 1;   // Licznik
+            BigInteger denominator = 1; // Mianownik
+
+            foreach (var share_m in shares)
+            {
+                if (share_m.ID == share_j.ID) continue; // bez j == m
+
+                BigInteger xm = share_m.ID;
+
+                // Licznik: (0 - xm) = -xm
+                numerator = ZTTK_Lab4.Math.Mod(numerator * (0 - xm), prime);
+
+                // Mianownik: (xj - xm)
+                denominator = ZTTK_Lab4.Math.Mod(denominator * (xj - xm), prime);
+            }
+
+            // Dzielenie  = mnożenie przez odwrotność w Z_q
+            // lagrangePoly = (Licznik * (Mianownik)^-1) mod q
+            BigInteger lagrangePoly = ZTTK_Lab4.Math.Mod(numerator * ZTTK_Lab4.Math.ModInverse(denominator, prime), prime);
+
+            secret = ZTTK_Lab4.Math.Mod(secret + (yj * lagrangePoly), prime);
+        }
+
+        return secret;
+    }
+
     // logika wyliczania punktów wielomianu 
     // s_i = P(i) mod q
     private static List<Share> GenerateShares(BigInteger[] coefficients, int n, BigInteger prime)
