@@ -174,19 +174,31 @@ class Program
     static void RunPerformanceTest()
     {
         Console.WriteLine("\nTEST WYDAJNOŚCI");
+        Console.WriteLine("Aby uzyskać mierzalne wyniki, wykonujemy test 1000 razy dla każdego n.");
 
-        BigInteger secret = 123456789;
+        // Generujemy losowy, bardzo duży sekret (256-bitowy),
+        BigInteger hugeLimit = BigInteger.Pow(2, 256);
+        BigInteger secret = ZTTK_Lab4.Math.RandomBigInteger(hugeLimit);
+
         int t = 5;
-        BigInteger prime = ZTTK_Lab4.Math.GetNextPrime(secret * 100000);
+        // Szukanie liczby pierwszej większej od  sekretu
+        BigInteger prime = ZTTK_Lab4.Math.GetNextPrime(secret);
 
-        int[] nValues = { 10, 100, 500, 1000, 2000, 5000 };
+        // Zwiększamy zakres n, żeby jeszcze  obciążyć system
+        int[] nValues = { 10, 100, 500, 1000, 2500, 5000 };
 
-        Console.WriteLine($"{"n",-10} | {"Czas (ms)",-10} | {"Średni czas/udział (ms)",-20}");
-        Console.WriteLine(new string('-', 45));
+        // LICZBA POWTÓRZEŃ 
+        int repetitions = 1000;
+
+        Console.WriteLine($"\nSekret (bitów): ~256");
+        Console.WriteLine($"Liczba powtórzeń pętli: {repetitions}");
+        Console.WriteLine(new string('-', 75));
+        Console.WriteLine($"{"n",-10} | {"Łączny Czas (ms)",-20} | {"Śr. czas/1 udział (ms)",-25}");
+        Console.WriteLine(new string('-', 75));
 
         foreach (int n in nValues)
         {
-            // Przygotowanie współczynników
+            // Przygotowanie współczynników (raz na testowane n)
             BigInteger[] coeffs = new BigInteger[t];
             coeffs[0] = secret;
             for (int i = 1; i<t; i++) coeffs[i] = ZTTK_Lab4.Math.RandomBigInteger(prime);
@@ -194,16 +206,25 @@ class Program
             // Start pomiaru
             Stopwatch sw = Stopwatch.StartNew();
 
-            for (int x = 1; x <= n; x++)
+            // Pętla obciążająca (Benchmark)
+            for (int r = 0; r < repetitions; r++)
             {
-                // Symulacja generowania pojedynczego udziału
-                Shamir.CreateNewShare(x, coeffs, prime);
+                for (int x = 1; x <= n; x++)
+                {
+                    // Symulacja generowania udziału
+                    Shamir.CreateNewShare(x, coeffs, prime);
+                }
             }
 
             sw.Stop();
-            double avg = (double)sw.ElapsedMilliseconds / n;
-            Console.WriteLine($"{n,-10} | {sw.ElapsedMilliseconds,-10} | {avg,-20:F4}");
+
+            // Obliczenia statystyczne
+            long totalMs = sw.ElapsedMilliseconds;
+            // Całkowita liczba wygenerowanych udziałów w teście = n * repetitions
+            double totalOperations = (double)n * repetitions;
+            double avgPerShare = totalMs / totalOperations;
+
+            Console.WriteLine($"{n,-10} | {totalMs,-20} | {avgPerShare,-25:F6}");
         }
-        Console.WriteLine("\nTest zakończony.");
     }
 }
